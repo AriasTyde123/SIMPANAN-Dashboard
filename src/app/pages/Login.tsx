@@ -6,9 +6,10 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 const DEMO_ACCOUNTS = [
-  { email: 'budi.santoso@email.com', password: 'simpanan123', name: 'Budi Santoso', room: '302' },
-  { email: 'sari.dewi@email.com', password: 'simpanan123', name: 'Sari Dewi', room: '115' },
-  { email: 'andi.pratama@email.com', password: 'simpanan123', name: 'Andi Pratama', room: '201' },
+  { email: 'admin@simpanan.com', password: 'admin123', name: 'Admin', room: '-', role: 'admin' as const },
+  { email: 'budi.santoso@email.com', password: 'simpanan123', name: 'Budi Santoso', room: '302', role: 'tenant' as const },
+  { email: 'sari.dewi@email.com', password: 'simpanan123', name: 'Sari Dewi', room: '115', role: 'tenant' as const },
+  { email: 'andi.pratama@email.com', password: 'simpanan123', name: 'Andi Pratama', room: '201', role: 'tenant' as const },
 ];
 
 const features = [
@@ -261,14 +262,19 @@ export function Login() {
                 onClick={() => fillDemo(acc)}
                 className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50 rounded-xl transition-all text-left group"
               >
-                <div className="w-8 h-8 rounded-full bg-[#0c1a2e] flex items-center justify-center text-cyan-400 text-xs flex-shrink-0" style={{ fontWeight: 700 }}>
-                  {acc.name.split(' ').map(n => n[0]).join('')}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs flex-shrink-0 ${acc.role === 'admin' ? 'bg-amber-500 text-white' : 'bg-[#0c1a2e] text-cyan-400'}`} style={{ fontWeight: 700 }}>
+                  {acc.name.split(' ').map(n => n[0]).join('').slice(0,2)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-slate-700 group-hover:text-slate-900 truncate" style={{ fontWeight: 600 }}>
-                    {acc.name}
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm text-slate-700 group-hover:text-slate-900 truncate" style={{ fontWeight: 600 }}>
+                      {acc.name}
+                    </div>
+                    {acc.role === 'admin' && (
+                      <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ fontWeight: 700 }}>ADMIN</span>
+                    )}
                   </div>
-                  <div className="text-xs text-slate-400 truncate">{acc.email} · Room {acc.room}</div>
+                  <div className="text-xs text-slate-400 truncate">{acc.email}{acc.room !== '-' ? ` · Room ${acc.room}` : ''}</div>
                 </div>
                 <span className="text-xs text-cyan-600 group-hover:text-cyan-700 flex-shrink-0" style={{ fontWeight: 600 }}>
                   Use →
@@ -278,7 +284,9 @@ export function Login() {
           </div>
 
           <p className="text-center text-xs text-slate-400 mt-6">
-            Password for all demo accounts: <span className="text-slate-600" style={{ fontFamily: 'monospace', fontWeight: 600 }}>simpanan123</span>
+            Tenant password: <span className="text-slate-600" style={{ fontFamily: 'monospace', fontWeight: 600 }}>simpanan123</span>
+            {' · '}
+            Admin password: <span className="text-slate-600" style={{ fontFamily: 'monospace', fontWeight: 600 }}>admin123</span>
           </p>
         </div>
       </div>

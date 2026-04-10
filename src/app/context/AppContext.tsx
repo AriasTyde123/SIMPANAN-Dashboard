@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import {
   Locker, LogEntry, Notification,
   initialLockers, initialLogs, initialNotifications,
-  LockerStatus,
+  LockerStatus, LockerSize,
 } from '../data/mockData';
 
 interface AppContextType {
@@ -16,6 +16,8 @@ interface AppContextType {
   getLockerLogs: (lockerId: string) => LogEntry[];
   addLog: (entry: Omit<LogEntry, 'id'>) => void;
   unreadCount: number;
+  addLocker: (data: { number: string; location: string; size: LockerSize }) => { success: boolean; message: string };
+  updateLockerStatus: (lockerId: string, newStatus: LockerStatus) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -75,17 +77,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const locker = lockers.find(l => l.id === lockerId)!;
 
-    addLog({
-      lockerId, timestamp: now,
-      eventType: 'booking_created', severity: 'info',
-      description: `Booking created by ${userName} (Room ${userRoom})`,
-    });
-
-    addLog({
-      lockerId, timestamp: new Date(Date.now() + 5000).toISOString(),
-      eventType: 'password_sent', severity: 'success',
-      description: `Access password ${password} sent to user`,
-    });
+    addLog({ lockerId, timestamp: now, eventType: 'booking_created', severity: 'info', description: `Booking created by ${userName} (Room ${userRoom})` });
+    addLog({ lockerId, timestamp: new Date(Date.now() + 5000).toISOString(), eventType: 'password_sent', severity: 'success', description: `Access password ${password} sent to user` });
 
     setNotifications(prev => [
       {
@@ -116,17 +109,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       )
     );
 
-    addLog({
-      lockerId, timestamp: now,
-      eventType: 'unblocked', severity: 'success',
-      description: `Locker unblocked by owner ${locker?.bookedBy ?? 'user'}. Wrong attempt counter reset.`,
-    });
-
-    addLog({
-      lockerId, timestamp: now,
-      eventType: 'password_reset', severity: 'info',
-      description: `Access re-enabled. Courier may retry with the original password.`,
-    });
+    addLog({ lockerId, timestamp: now, eventType: 'unblocked', severity: 'success', description: `Locker unblocked by owner ${locker?.bookedBy ?? 'user'}. Wrong attempt counter reset.` });
+    addLog({ lockerId, timestamp: now, eventType: 'password_reset', severity: 'info', description: `Access re-enabled. Courier may retry with the original password.` });
 
     setNotifications(prev => [
       {
@@ -143,10 +127,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ]);
   };
 
-  const markNotificationRead = (notifId: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === notifId ? { ...n, read: true } : n)
+  const addLocker = (data: { number: string; location: string; size: LockerSize }) => {
+    const exists = lockers.some(l => l.number.toLowerCase() === data.number.toLowerCase());
+    if (exists) return { success: false, message: `Locker ${data.number} already exists.` };
+    if (!data.number.trim() || !data.location.trim()) {
+      return { success: false, message: 'Locker number and location are required.' };
+    }
+    const id = 'L' + (lockers.length + 1).toString().padStart(3, '0') + '_' + generateId();
+    const newLocker: Locker = {
+      id,
+      number: data.number.trim().toUpperCase(),
+      location: data.location.trim(),
+      size: data.size,
+      status: 'available',
+      wrongAttempts: 0,
+    };
+    setLockers(prev => [...prev, newLocker]);
+    addLog({ lockerId: id, timestamp: new Date().toISOString(), eventType: 'booking_created', severity: 'info', description: `Locker ${data.number} added by admin.` });
+    return { success: true, message: `Locker ${data.number} added successfully.` };
+  };
+
+  const updateLockerStatus = (lockerId: string, newStatus: LockerStatus) => {
+    const now = new Date().toISOString();
+    const locker = lockers.find(l => l.id === lockerId)!;
+    setLockers(prev =>
+      prev.map(l => {
+        if (l.id !== lockerId) return l;
+        if (newStatus === 'available') {
+          return { id: l.id, number: l.number, location: l.location, size: l.size, status: 'available', wrongAttempts: 0 };
+        }
+        return { ...l, status: newStatus };
+      })
     );
+    addLog({
+      lockerId, timestamp: now,
+      eventType: newStatus === 'blocked' ? 'blocked' : newStatus === 'available' ? 'unblocked' : 'booking_created',
+      severity: newStatus === 'blocked' ? 'error' : newStatus === 'available' ? 'success' : 'info',
+      description: `Admin changed locker status from "${locker?.status}" to "${newStatus}".`,
+    });
+    setNotifications(prev => [
+      {
+        id: 'notif_' + generateId(),
+        lockerId,
+        lockerNumber: locker?.number ?? lockerId,
+        title: `🔧 Admin: Status Changed — ${locker?.number ?? lockerId}`,
+        description: `Locker status was manually changed from "${locker?.status}" to "${newStatus}" by the admin.`,
+        timestamp: now,
+        read: false,
+        type: newStatus === 'blocked' ? 'error' : newStatus === 'available' ? 'success' : 'info',
+      },
+      ...prev,
+    ]);
+  };
+
+  const markNotificationRead = (notifId: string) => {
+    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
   };
 
   const markAllRead = () => {
@@ -160,6 +195,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markNotificationRead, markAllRead,
       getLockerLogs, addLog,
       unreadCount,
+      addLocker,
+      updateLockerStatus,
     }}>
       {children}
     </AppContext.Provider>

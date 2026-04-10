@@ -4,10 +4,12 @@ import {
   ArrowLeft, Lock, LockOpen, Package, AlertTriangle, ShieldAlert,
   MapPin, Clock, KeyRound, Copy, Check, Eye, EyeOff,
   DoorOpen, DoorClosed, PackageCheck, PackageX, UnlockKeyhole,
-  Activity, Info, CheckCircle2, XCircle, RefreshCw, CalendarClock
+  Activity, Info, CheckCircle2, XCircle, RefreshCw, CalendarClock,
+  ShieldX,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { LogEntry, LogEventType, CURRENT_USER } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
+import { LogEntry, LogEventType } from '../data/mockData';
 
 const eventConfig: Record<LogEventType, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
   door_opened: {
@@ -111,6 +113,7 @@ function LogRow({ log }: { log: LogEntry }) {
 export function LockerDetail() {
   const { id } = useParams<{ id: string }>();
   const { lockers, getLockerLogs, unblockLocker } = useApp();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const locker = lockers.find(l => l.id === id);
@@ -131,7 +134,41 @@ export function LockerDetail() {
     );
   }
 
-  const isOwner = locker.bookedBy === CURRENT_USER.name;
+  const isOwner = locker.bookedBy === user?.name;
+  const canAccess = isAdmin || isOwner;
+
+  // Access denied for regular users viewing someone else's locker
+  if (!canAccess) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <ShieldX className="w-10 h-10 text-red-500" />
+        </div>
+        <h2 className="text-slate-800 mb-2">Access Restricted</h2>
+        <p className="text-sm text-slate-500 max-w-sm">
+          You don't have permission to view details for <strong>{locker.number}</strong>.
+          You can only access lockers that are booked under your account.
+        </p>
+        <div className="mt-4 flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Go Back
+          </button>
+          <button
+            onClick={() => navigate('/my-bookings')}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#0c1a2e] hover:bg-slate-800 text-white rounded-xl text-sm transition-colors"
+            style={{ fontWeight: 600 }}
+          >
+            View My Bookings
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const isBlocked = locker.status === 'blocked';
 
   const handleCopy = () => {
@@ -294,8 +331,8 @@ export function LockerDetail() {
             </div>
           </div>
 
-          {/* Password (only for owner) */}
-          {isOwner && locker.password && (
+          {/* Password (owner or admin can see) */}
+          {(isOwner || isAdmin) && locker.password && (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3">
               <h3 className="text-slate-700">Access Password</h3>
               <div className="bg-slate-900 rounded-xl p-4 flex items-center justify-between">

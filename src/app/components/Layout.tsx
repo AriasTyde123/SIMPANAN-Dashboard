@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router';
 import {
   LayoutDashboard, BookMarked, Bell, Settings,
   Lock, Menu, X, LogOut, ChevronRight, Package,
-  Activity, Shield, Users, ClipboardList,
+  Activity, Shield, Users, ClipboardList, Video,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +22,7 @@ const adminNavItems = [
 ];
 
 const adminOnlyItems = [
+  { to: '/admin/cameras', label: 'Camera Monitor', icon: Video },
   { to: '/admin/logs', label: 'All Logs', icon: Activity },
   { to: '/admin/lockers', label: 'Manage Lockers', icon: ClipboardList },
   { to: '/admin/users', label: 'Manage Users', icon: Users },

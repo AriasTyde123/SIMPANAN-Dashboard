@@ -5,11 +5,12 @@ import {
   MapPin, Clock, KeyRound, Copy, Check, Eye, EyeOff,
   DoorOpen, DoorClosed, PackageCheck, PackageX, UnlockKeyhole,
   Activity, Info, CheckCircle2, XCircle, RefreshCw, CalendarClock,
-  ShieldX,
+  ShieldX, Video,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { LogEntry, LogEventType } from '../data/mockData';
+import { CameraFeed } from '../components/CameraFeed';
 
 const eventConfig: Record<LogEventType, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
   door_opened: {
@@ -256,6 +257,26 @@ export function LockerDetail() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Info panel */}
         <div className="space-y-4">
+          {/* ── Live Camera Feed ── */}
+          {locker.cameraUrl && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Video className="w-4 h-4 text-cyan-500" />
+                  <h3 className="text-slate-700">Live Camera</h3>
+                </div>
+                <span className="text-[10px] text-slate-400 font-mono">ESP32-CAM</span>
+              </div>
+              <div className="p-3">
+                <CameraFeed
+                  cameraUrl={locker.cameraUrl}
+                  lockerNumber={locker.number}
+                  expandable={true}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Blocked alert */}
           {isBlocked && (
             <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4">

@@ -26,6 +26,7 @@ export interface Locker {
   bookedAt?: string;
   expiresAt?: string;
   wrongAttempts: number;
+  cameraUrl?: string;
 }
 
 export interface LogEntry {
@@ -59,10 +60,12 @@ export const initialLockers: Locker[] = [
   {
     id: 'L001', number: 'L-001', location: 'Ground Floor - A', size: 'small',
     status: 'available', wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.101:81/stream',
   },
   {
     id: 'L002', number: 'L-002', location: 'Ground Floor - A', size: 'medium',
     status: 'available', wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.102:81/stream',
   },
   {
     id: 'L003', number: 'L-003', location: 'Ground Floor - A', size: 'large',
@@ -72,6 +75,7 @@ export const initialLockers: Locker[] = [
     bookedAt: '2026-04-08T08:30:00',
     expiresAt: '2026-04-09T08:30:00',
     wrongAttempts: 1,
+    cameraUrl: 'http://192.168.1.103:81/stream',
   },
   {
     id: 'L004', number: 'L-004', location: 'Ground Floor - A', size: 'small',
@@ -81,10 +85,12 @@ export const initialLockers: Locker[] = [
     bookedAt: '2026-04-07T14:00:00',
     expiresAt: '2026-04-10T14:00:00',
     wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.104:81/stream',
   },
   {
     id: 'L005', number: 'L-005', location: 'Ground Floor - B', size: 'medium',
     status: 'available', wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.105:81/stream',
   },
   {
     id: 'L006', number: 'L-006', location: 'Ground Floor - B', size: 'small',
@@ -94,6 +100,7 @@ export const initialLockers: Locker[] = [
     bookedAt: '2026-04-06T09:15:00',
     expiresAt: '2026-04-09T09:15:00',
     wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.106:81/stream',
   },
   {
     id: 'L007', number: 'L-007', location: 'Ground Floor - B', size: 'large',
@@ -103,14 +110,17 @@ export const initialLockers: Locker[] = [
     bookedAt: '2026-04-07T11:00:00',
     expiresAt: '2026-04-10T11:00:00',
     wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.107:81/stream',
   },
   {
     id: 'L008', number: 'L-008', location: 'Ground Floor - B', size: 'medium',
     status: 'available', wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.108:81/stream',
   },
   {
     id: 'L009', number: 'L-009', location: 'First Floor - A', size: 'small',
     status: 'available', wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.109:81/stream',
   },
   {
     id: 'L010', number: 'L-010', location: 'First Floor - A', size: 'large',
@@ -120,10 +130,12 @@ export const initialLockers: Locker[] = [
     bookedAt: '2026-04-08T06:00:00',
     expiresAt: '2026-04-09T06:00:00',
     wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.110:81/stream',
   },
   {
     id: 'L011', number: 'L-011', location: 'First Floor - A', size: 'medium',
     status: 'available', wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.111:81/stream',
   },
   {
     id: 'L012', number: 'L-012', location: 'First Floor - B', size: 'small',
@@ -133,10 +145,12 @@ export const initialLockers: Locker[] = [
     bookedAt: '2026-04-08T07:45:00',
     expiresAt: '2026-04-09T07:45:00',
     wrongAttempts: 3,
+    cameraUrl: 'http://192.168.1.112:81/stream',
   },
   {
     id: 'L013', number: 'L-013', location: 'First Floor - B', size: 'medium',
     status: 'available', wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.113:81/stream',
   },
   {
     id: 'L014', number: 'L-014', location: 'First Floor - B', size: 'large',
@@ -146,14 +160,17 @@ export const initialLockers: Locker[] = [
     bookedAt: '2026-04-05T16:30:00',
     expiresAt: '2026-04-11T16:30:00',
     wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.114:81/stream',
   },
   {
     id: 'L015', number: 'L-015', location: 'Second Floor - A', size: 'small',
     status: 'available', wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.115:81/stream',
   },
   {
     id: 'L016', number: 'L-016', location: 'Second Floor - A', size: 'medium',
     status: 'available', wrongAttempts: 0,
+    cameraUrl: 'http://192.168.1.116:81/stream',
   },
 ];
 

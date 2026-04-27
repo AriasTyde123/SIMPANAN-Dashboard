@@ -8,6 +8,7 @@ import { Settings } from './pages/Settings';
 import { AdminLogs } from './pages/admin/AdminLogs';
 import { ManageLockers } from './pages/admin/ManageLockers';
 import { ManageUsers } from './pages/admin/ManageUsers';
+import { CameraMonitor } from './pages/admin/CameraMonitor';
 
 export const router = createBrowserRouter([
   {
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: 'admin/logs', Component: AdminLogs },
       { path: 'admin/lockers', Component: ManageLockers },
       { path: 'admin/users', Component: ManageUsers },
+      { path: 'admin/cameras', Component: CameraMonitor },
     ],
   },
 ]);

@@ -12,7 +12,7 @@
 *.wmv
 
 # Some important credentials
-.env
+*.env.local
 
 # Optional npm cache directory
 .npm

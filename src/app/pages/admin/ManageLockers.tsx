@@ -32,10 +32,10 @@ function AddLockerModal({ onClose }: { onClose: () => void }) {
 
   const existingLocations = [...new Set(lockers.map(l => l.location.split(' - ')[0]))];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const result = addLocker({ number: number.trim(), location: location.trim(), size });
+    const result = await addLocker({ number: number.trim(), location: location.trim(), size });
     if (!result.success) {
       setError(result.message);
     } else {

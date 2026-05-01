@@ -6,10 +6,9 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 const DEMO_ACCOUNTS = [
-  { email: 'admin@simpanan.com', password: 'admin123', name: 'Admin', room: '-', role: 'admin' as const },
-  { email: 'budi.santoso@email.com', password: 'simpanan123', name: 'Budi Santoso', room: '302', role: 'tenant' as const },
-  { email: 'sari.dewi@email.com', password: 'simpanan123', name: 'Sari Dewi', room: '115', role: 'tenant' as const },
-  { email: 'andi.pratama@email.com', password: 'simpanan123', name: 'Andi Pratama', room: '201', role: 'tenant' as const },
+  { email: 'ariqfakhrizakip@gmail.com', password: 'admin123', name: 'Admin', room: '-', role: 'admin' as const },
+  { email: 'dierlyawan.wiguna@student.pradita.ac.id', password: 'simpanan123', name: 'Dierlyawan Wiguna', room: '302', role: 'tenant' as const },
+  { email: 'miko.afrian@student.pradita.ac.id', password: 'simpanan123', name: 'Miko Afrian Perey', room: '115', role: 'tenant' as const },
 ];
 
 const features = [

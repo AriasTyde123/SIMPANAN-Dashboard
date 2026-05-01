@@ -30,8 +30,8 @@ export function BookingModal({ locker, onClose }: Props) {
     large: <Maximize2 className="w-4 h-4 text-slate-500" />,
   }[locker.size];
 
-  const handleConfirm = () => {
-    const pw = bookLocker(locker.id, user?.name ?? 'Unknown', user?.room ?? '—');
+  const handleConfirm = async () => {
+    const pw = await bookLocker(locker.id, user?.name ?? 'Unknown', user?.room ?? '—');
     setPassword(pw);
     setStep('success');
   };

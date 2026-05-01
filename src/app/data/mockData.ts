@@ -10,6 +10,7 @@ export type LogEventType =
   | 'door_ajar'
   | 'unblocked'
   | 'booking_created'
+  | 'booking_cancelled'
   | 'password_sent'
   | 'password_reset';
 export type LogSeverity = 'info' | 'warning' | 'error' | 'success';

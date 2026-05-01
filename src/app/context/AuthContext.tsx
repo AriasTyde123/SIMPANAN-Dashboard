@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../../lib/supabase'; // Pastikan path ini sesuai
 
 export interface AuthUser {
   id: string;
@@ -15,129 +16,132 @@ interface AuthContextType {
   isLoggedIn: boolean;
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
-  logout: () => void;
-  addUser: (data: { name: string; room: string; email: string; password: string }) => { success: boolean; message: string };
+  logout: () => Promise<void>;
+  addUser: (data: { name: string; room: string; email: string; password: string }) => Promise<{ success: boolean; message: string }>;
 }
-
-export interface MockUserRecord extends AuthUser {
-  password: string;
-}
-
-const initialUsers: MockUserRecord[] = [
-  {
-    id: 'u0',
-    name: 'Admin',
-    room: '-',
-    email: 'admin@simpanan.com',
-    avatar: 'AD',
-    role: 'admin',
-    password: 'admin123',
-  },
-  {
-    id: 'u1',
-    name: 'Budi Santoso',
-    room: '302',
-    email: 'budi.santoso@email.com',
-    avatar: 'BS',
-    role: 'tenant',
-    password: 'simpanan123',
-  },
-  {
-    id: 'u2',
-    name: 'Sari Dewi',
-    room: '115',
-    email: 'sari.dewi@email.com',
-    avatar: 'SD',
-    role: 'tenant',
-    password: 'simpanan123',
-  },
-  {
-    id: 'u3',
-    name: 'Andi Pratama',
-    room: '201',
-    email: 'andi.pratama@email.com',
-    avatar: 'AP',
-    role: 'tenant',
-    password: 'simpanan123',
-  },
-  {
-    id: 'u4',
-    name: 'Rina Kusuma',
-    room: '410',
-    email: 'rina.kusuma@email.com',
-    avatar: 'RK',
-    role: 'tenant',
-    password: 'simpanan123',
-  },
-  {
-    id: 'u5',
-    name: 'Hendra Wijaya',
-    room: '325',
-    email: 'hendra.wijaya@email.com',
-    avatar: 'HW',
-    role: 'tenant',
-    password: 'simpanan123',
-  },
-];
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function generateId() {
-  return 'u_' + Math.random().toString(36).substring(2, 8);
-}
-
 function initials(name: string) {
+  if (!name) return 'U';
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [userRecords, setUserRecords] = useState<MockUserRecord[]>(initialUsers);
+  const [allUsers, setAllUsers] = useState<AuthUser[]>([]);
 
   const isAdmin = user?.role === 'admin';
 
-  // Expose only non-sensitive user info (no passwords)
-  const users: AuthUser[] = userRecords.map(({ password: _pw, ...u }) => u);
+  // Fungsi untuk mengambil detail profil pengguna dari tabel 'users' publik
+  const fetchUserProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
 
-  const login = async (
-    email: string,
-    password: string
-  ): Promise<{ success: boolean; message: string }> => {
-    await new Promise(r => setTimeout(r, 900));
-    const found = userRecords.find(
-      u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
-    if (!found) {
-      return { success: false, message: 'Invalid email or password. Please try again.' };
+      console.log("🕵️ RADAR SUPABASE:", { userId_yang_dicari: userId, hasil_data: data, pesan_error: error });
+
+    if (data) {
+      setUser({
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        room: data.room,
+        role: data.role,
+        avatar: initials(data.name),
+      });
     }
-    const { password: _pw, ...authUser } = found;
-    setUser(authUser);
+  };
+
+  // Fungsi untuk mengambil semua pengguna (hanya berguna untuk admin dashboard)
+  const fetchAllUsers = async () => {
+    const { data } = await supabase.from('users').select('*');
+    if (data) {
+      setAllUsers(data.map(u => ({
+        ...u,
+        avatar: initials(u.name)
+      })));
+    }
+  };
+
+  // Pantau status sesi Supabase (agar tetap login meski halaman di-refresh)
+  useEffect(() => {
+    // Cek sesi saat komponen pertama kali dimuat
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        fetchUserProfile(session.user.id);
+      }
+    });
+
+    // Dengarkan perubahan status login/logout
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        fetchUserProfile(session.user.id);
+      } else {
+        setUser(null);
+      }
+    });
+
+    fetchAllUsers(); // Ambil daftar semua user
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    // 1. Serahkan urusan verifikasi password ke Supabase Auth
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    // 2. Jika sukses, profil akan otomatis ter-fetch oleh onAuthStateChange di useEffect
     return { success: true, message: 'Login successful' };
   };
 
-  const logout = () => setUser(null);
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
-  const addUser = (data: { name: string; room: string; email: string; password: string }) => {
-    const exists = userRecords.some(u => u.email.toLowerCase() === data.email.toLowerCase());
-    if (exists) return { success: false, message: 'An account with this email already exists.' };
+  const addUser = async (data: { name: string; room: string; email: string; password: string }) => {
     if (!data.name.trim() || !data.email.trim() || !data.password.trim()) {
       return { success: false, message: 'All fields are required.' };
     }
-    const newUser: MockUserRecord = {
-      id: generateId(),
+
+    // 1. Buat akun di sistem Autentikasi internal Supabase (auth.users)
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+    });
+
+    if (authError) return { success: false, message: authError.message };
+    if (!authData.user) return { success: false, message: 'Failed to create user.' };
+
+    // 2. Simpan profil tambahan (nama, room, role) ke tabel 'users' publik milikmu
+    const { error: dbError } = await supabase.from('users').insert({
+      id: authData.user.id, // ID ini PASTI SAMA dengan ID di sistem auth
+      email: data.email.toLowerCase(),
       name: data.name.trim(),
       room: data.room.trim(),
-      email: data.email.trim().toLowerCase(),
-      avatar: initials(data.name),
-      role: 'tenant',
-      password: data.password,
-    };
-    setUserRecords(prev => [...prev, newUser]);
+      role: 'tenant', // Default role
+    });
+
+    if (dbError) {
+      return { success: false, message: `Database error: ${dbError.message}` };
+    }
+
+    fetchAllUsers(); // Refresh daftar user
     return { success: true, message: `Account for ${data.name} created successfully.` };
   };
 
   return (
-    <AuthContext.Provider value={{ user, users, isLoggedIn: !!user, isAdmin, login, logout, addUser }}>
+    <AuthContext.Provider value={{ user, users: allUsers, isLoggedIn: !!user, isAdmin, login, logout, addUser }}>
       {children}
     </AuthContext.Provider>
   );

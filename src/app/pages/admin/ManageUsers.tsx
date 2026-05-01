@@ -17,10 +17,12 @@ function AddUserModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const result = addUser({ name, email, room, password });
+
+    const result = await addUser({ name, email, room, password }); 
+    
     if (!result.success) {
       setError(result.message);
     } else {

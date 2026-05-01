@@ -5,7 +5,7 @@ import {
   MapPin, Clock, KeyRound, Copy, Check, Eye, EyeOff,
   DoorOpen, DoorClosed, PackageCheck, PackageX, UnlockKeyhole,
   Activity, Info, CheckCircle2, XCircle, RefreshCw, CalendarClock,
-  ShieldX, Video,
+  ShieldX, Video, Trash2, TriangleAlert,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -48,6 +48,10 @@ const eventConfig: Record<LogEventType, { label: string; icon: React.ReactNode; 
   booking_created: {
     label: 'Booking Created', color: 'text-cyan-700', bg: 'bg-cyan-50',
     icon: <CheckCircle2 className="w-4 h-4" />,
+  },
+  booking_cancelled: {
+    label: 'Booking Cancelled', color: 'text-slate-700', bg: 'bg-slate-100',
+    icon: <Trash2 className="w-4 h-4" />,
   },
   password_sent: {
     label: 'Password Sent', color: 'text-indigo-700', bg: 'bg-indigo-50',
@@ -113,7 +117,7 @@ function LogRow({ log }: { log: LogEntry }) {
 
 export function LockerDetail() {
   const { id } = useParams<{ id: string }>();
-  const { lockers, getLockerLogs, unblockLocker } = useApp();
+  const { lockers, getLockerLogs, unblockLocker, cancelBooking } = useApp();
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -124,6 +128,9 @@ export function LockerDetail() {
   const [copied, setCopied] = useState(false);
   const [unblocking, setUnblocking] = useState(false);
   const [filterSeverity, setFilterSeverity] = useState<'all' | 'warning' | 'error'>('all');
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   if (!locker) {
     return (
@@ -188,6 +195,25 @@ export function LockerDetail() {
     }, 800);
   };
 
+  const handleCancelBooking = async (lockerId: string) => {
+    try {
+      setCancelling(true);
+      setCancelError(null);
+      await new Promise(res => setTimeout(res, 700));
+
+      const result = await cancelBooking(lockerId, user?.name ?? 'User');
+
+      if (!result.success) throw new Error(result.message);
+
+      setShowCancelModal(false);
+      navigate('/my-bookings');
+    } catch (error: any) {
+      setCancelError(error.message ?? 'Failed to cancel booking.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const filteredLogs = filterSeverity === 'all'
     ? logs
     : logs.filter(l => l.severity === filterSeverity);
@@ -240,19 +266,112 @@ export function LockerDetail() {
               {locker.location}
             </div>
           </div>
-          {isOwner && isBlocked && (
-            <button
-              onClick={handleUnblock}
-              disabled={unblocking}
-              className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white rounded-xl text-sm transition-colors"
-              style={{ fontWeight: 600 }}
-            >
-              <UnlockKeyhole className="w-4 h-4" />
-              {unblocking ? 'Unblocking…' : 'Unblock Locker'}
-            </button>
-          )}
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Cancel booking — only owner, only when status is 'booked' */}
+            {isOwner && locker.status === 'booked' && (
+              <button
+                onClick={() => { setCancelError(null); setShowCancelModal(true); }}
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-xl text-sm transition-colors"
+                style={{ fontWeight: 600 }}
+              >
+                <Trash2 className="w-4 h-4" />
+                Cancel Booking
+              </button>
+            )}
+
+            {/* Unblock — admin or owner when blocked */}
+            {(isAdmin || isOwner) && isBlocked && (
+              <button
+                onClick={handleUnblock}
+                disabled={unblocking}
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white rounded-xl text-sm transition-colors"
+                style={{ fontWeight: 600 }}
+              >
+                <UnlockKeyhole className="w-4 h-4" />
+                {unblocking ? 'Unblocking…' : 'Unblock Locker'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Cancel Booking Confirmation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            {/* Icon + title */}
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+                <TriangleAlert className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-slate-800" style={{ fontWeight: 700 }}>Cancel Booking?</h3>
+                <p className="text-sm text-slate-500 mt-0.5">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            {/* Info */}
+            <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm text-slate-600">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Locker</span>
+                <span style={{ fontWeight: 600 }}>{locker.number}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Location</span>
+                <span style={{ fontWeight: 600 }}>{locker.location}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Booked by</span>
+                <span style={{ fontWeight: 600 }}>{locker.bookedBy}</span>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-600">
+              Cancelling will <strong>immediately release</strong> this locker and invalidate the access password.
+              The locker will become available for others to book.
+            </p>
+
+            {/* Error */}
+            {cancelError && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-sm text-red-600">
+                <XCircle className="w-4 h-4 flex-shrink-0" />
+                {cancelError}
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => { setShowCancelModal(false); setCancelError(null); }}
+                disabled={cancelling}
+                className="flex-1 py-2.5 px-4 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Keep Booking
+              </button>
+              <button
+                onClick={() => handleCancelBooking(locker.id)}
+                disabled={cancelling}
+                className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+                style={{ fontWeight: 600 }}
+              >
+                {cancelling ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Cancelling…
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Yes, Cancel
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Info panel */}

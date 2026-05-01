@@ -1,29 +1,27 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import {
-  Locker, LogEntry, Notification,
-  initialLockers, initialLogs, initialNotifications,
-  LockerStatus, LockerSize,
-} from '../data/mockData';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { supabase } from '../../lib/supabase'; // Pastikan path import ini sesuai dengan file supabase-mu
+import { Locker, LogEntry, Notification, LockerStatus, LockerSize } from '../data/mockData';
 
 interface AppContextType {
   lockers: Locker[];
   logs: LogEntry[];
   notifications: Notification[];
-  bookLocker: (lockerId: string, userName: string, userRoom: string) => string;
-  unblockLocker: (lockerId: string) => void;
-  markNotificationRead: (notifId: string) => void;
-  markAllRead: () => void;
+  bookLocker: (lockerId: string, userName: string, userRoom: string) => Promise<string>;
+  cancelBooking: (lockerId: string, cancelledBy: string) => Promise<{ success: boolean; message: string }>;
+  unblockLocker: (lockerId: string) => Promise<void>;
+  markNotificationRead: (notifId: string) => Promise<void>;
+  markAllRead: () => Promise<void>;
   getLockerLogs: (lockerId: string) => LogEntry[];
-  addLog: (entry: Omit<LogEntry, 'id'>) => void;
+  addLog: (entry: Omit<LogEntry, 'id'>) => Promise<void>;
   unreadCount: number;
-  addLocker: (data: { number: string; location: string; size: LockerSize }) => { success: boolean; message: string };
-  updateLockerStatus: (lockerId: string, newStatus: LockerStatus) => void;
+  addLocker: (data: { number: string; location: string; size: LockerSize }) => Promise<{ success: boolean; message: string }>;
+  updateLockerStatus: (lockerId: string, newStatus: LockerStatus) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 function generatePassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const chars = '4567890BCD';
   let password = '';
   for (let i = 0; i < 6; i++) {
     password += chars[Math.floor(Math.random() * chars.length)];
@@ -31,172 +29,212 @@ function generatePassword(): string {
   return password;
 }
 
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 10);
-}
-
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [lockers, setLockers] = useState<Locker[]>(initialLockers);
-  const [logs, setLogs] = useState<LogEntry[]>(initialLogs);
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const [lockers, setLockers] = useState<Locker[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
+  const fetchAllData = async () => {
+    const { data: dbLockers } = await supabase.from('lockers').select('*');
+    if (dbLockers) {
+      setLockers(dbLockers.map(l => ({
+        id: l.id, number: l.number, location: l.location, size: l.size as LockerSize, status: l.status as LockerStatus,
+        bookedBy: l.booked_by, bookedByRoom: l.booked_by_room, password: l.password,
+        bookedAt: l.booked_at, expiresAt: l.expires_at, wrongAttempts: l.wrong_attempts, cameraUrl: l.camera_url
+      })));
+    }
 
-  const addLog = (entry: Omit<LogEntry, 'id'>) => {
-    const newLog: LogEntry = { ...entry, id: 'log_' + generateId() };
-    setLogs(prev => [...prev, newLog]);
+    const { data: dbLogs } = await supabase.from('logs').select('*').order('timestamp', { ascending: false });
+    if (dbLogs) {
+      setLogs(dbLogs.map(l => ({
+        id: l.id, lockerId: l.locker_id, timestamp: l.timestamp, eventType: l.event_type, description: l.description, severity: l.severity
+      })));
+    }
+
+    const { data: dbNotifs } = await supabase.from('notifications').select('*').order('timestamp', { ascending: false });
+    if (dbNotifs) {
+      setNotifications(dbNotifs.map(n => ({
+        id: n.id, lockerId: n.locker_id, lockerNumber: n.locker_number, title: n.title, description: n.description,
+        timestamp: n.timestamp, read: n.read, type: n.type
+      })));
+    }
+  };
+
+  useEffect(() => {
+    fetchAllData(); 
+    const channel = supabase.channel('schema-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lockers' }, fetchAllData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'logs' }, fetchAllData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, fetchAllData)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+
+  const addLog = async (entry: Omit<LogEntry, 'id'>) => {
+    await supabase.from('logs').insert({
+      locker_id: entry.lockerId,
+      event_type: entry.eventType,
+      description: entry.description,
+      severity: entry.severity
+    });
   };
 
   const getLockerLogs = (lockerId: string): LogEntry[] => {
-    return logs
-      .filter(l => l.lockerId === lockerId)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return logs.filter(l => l.lockerId === lockerId);
   };
 
-  const bookLocker = (lockerId: string, userName: string, userRoom: string): string => {
+  const bookLocker = async (lockerId: string, userName: string, userRoom: string): Promise<string> => {
     const password = generatePassword();
     const now = new Date().toISOString();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    
+    const locker = lockers.find(l => l.id === lockerId);
 
-    setLockers(prev =>
-      prev.map(l =>
-        l.id === lockerId
-          ? {
-              ...l,
-              status: 'booked' as LockerStatus,
-              bookedBy: userName,
-              bookedByRoom: userRoom,
-              password,
-              bookedAt: now,
-              expiresAt: expires,
-              wrongAttempts: 0,
-            }
-          : l
-      )
-    );
+    await supabase.from('lockers').update({
+      status: 'booked',
+      booked_by: userName,
+      booked_by_room: userRoom,
+      password: password,
+      booked_at: now,
+      expires_at: expires,
+      wrong_attempts: 0
+    }).eq('id', lockerId);
 
-    const locker = lockers.find(l => l.id === lockerId)!;
+    await addLog({ lockerId, timestamp: now, eventType: 'booking_created', severity: 'info', description: `Booking created by ${userName} (Room ${userRoom})` });
+    await addLog({ lockerId, timestamp: now, eventType: 'password_sent', severity: 'success', description: `Access password ${password} sent to user` });
 
-    addLog({ lockerId, timestamp: now, eventType: 'booking_created', severity: 'info', description: `Booking created by ${userName} (Room ${userRoom})` });
-    addLog({ lockerId, timestamp: new Date(Date.now() + 5000).toISOString(), eventType: 'password_sent', severity: 'success', description: `Access password ${password} sent to user` });
-
-    setNotifications(prev => [
-      {
-        id: 'notif_' + generateId(),
-        lockerId,
-        lockerNumber: locker?.number ?? lockerId,
-        title: `✅ Booking Confirmed — ${locker?.number ?? lockerId}`,
-        description: `Your booking is confirmed. Password: ${password} has been generated and is ready to share with your courier.`,
-        timestamp: now,
-        read: false,
-        type: 'info',
-      },
-      ...prev,
-    ]);
+    await supabase.from('notifications').insert({
+      locker_id: lockerId,
+      locker_number: locker?.number ?? lockerId,
+      title: `✅ Booking Confirmed — ${locker?.number ?? lockerId}`,
+      description: `Your booking is confirmed. Password: ${password} has been generated and is ready to share with your courier.`,
+      type: 'info'
+    });
 
     return password;
   };
 
-  const unblockLocker = (lockerId: string) => {
-    const now = new Date().toISOString();
-    const locker = lockers.find(l => l.id === lockerId)!;
+  const unblockLocker = async (lockerId: string) => {
+    const locker = lockers.find(l => l.id === lockerId);
+    
+    await supabase.from('lockers').update({
+      status: 'booked',
+      wrong_attempts: 0
+    }).eq('id', lockerId);
 
-    setLockers(prev =>
-      prev.map(l =>
-        l.id === lockerId
-          ? { ...l, status: 'booked' as LockerStatus, wrongAttempts: 0 }
-          : l
-      )
-    );
-
-    addLog({ lockerId, timestamp: now, eventType: 'unblocked', severity: 'success', description: `Locker unblocked by owner ${locker?.bookedBy ?? 'user'}. Wrong attempt counter reset.` });
-    addLog({ lockerId, timestamp: now, eventType: 'password_reset', severity: 'info', description: `Access re-enabled. Courier may retry with the original password.` });
-
-    setNotifications(prev => [
-      {
-        id: 'notif_' + generateId(),
-        lockerId,
-        lockerNumber: locker?.number ?? lockerId,
-        title: `🔓 Locker ${locker?.number ?? lockerId} Unblocked`,
-        description: `You have successfully unblocked Locker ${locker?.number ?? lockerId}. The courier can now retry entering the password.`,
-        timestamp: now,
-        read: false,
-        type: 'success',
-      },
-      ...prev,
-    ]);
+    await addLog({ lockerId, timestamp: new Date().toISOString(), eventType: 'unblocked', severity: 'success', description: `Locker unblocked. Wrong attempt counter reset.` });
+    
+    await supabase.from('notifications').insert({
+      locker_id: lockerId,
+      locker_number: locker?.number ?? lockerId,
+      title: `🔓 Locker ${locker?.number ?? lockerId} Unblocked`,
+      description: `Locker successfully unblocked. The courier can now retry entering the password.`,
+      type: 'success'
+    });
   };
 
-  const addLocker = (data: { number: string; location: string; size: LockerSize }) => {
+  const cancelBooking = async (lockerId: string, cancelledBy: string): Promise<{ success: boolean; message: string }> => {
+    const locker = lockers.find(l => l.id === lockerId);
+    if (!locker) return { success: false, message: 'Locker not found.' };
+    if (locker.status === 'filled') return { success: false, message: 'Locker cannot be cancelled — a package has already been placed inside.' };
+    if (locker.status === 'blocked') return { success: false, message: 'Locker cannot be cancelled while it is blocked. Unblock it first.' };
+    if (locker.status !== 'booked') return { success: false, message: 'This locker has no active booking to cancel.' };
+
+    try {
+      // Panggil fungsi RPC yang ada di Supabase
+      const { error } = await supabase.rpc('cancel_booking', {
+        p_locker_id: lockerId
+      });
+
+      if (error) throw error;
+
+      const now = new Date().toISOString();
+
+      // Tambahkan log pembatalan
+      await addLog({
+        lockerId, timestamp: now,
+        eventType: 'booking_cancelled', severity: 'info',
+        description: `Booking cancelled by ${cancelledBy}. Locker is now available.`,
+      });
+
+      // Tambahkan notifikasi (tanpa fungsi generateId siluman)
+      await supabase.from('notifications').insert({
+        locker_id: lockerId,
+        locker_number: locker.number,
+        title: `🗑️ Booking Cancelled — ${locker.number}`,
+        description: `Your booking for Locker ${locker.number} has been successfully cancelled. The locker is now available for others.`,
+        type: 'info'
+      });
+
+      return { success: true, message: `Booking for ${locker.number} has been cancelled successfully.` };
+
+    } catch (error: any) {
+      console.error("RPC Error:", error.message);
+      return { success: false, message: `Failed to cancel booking: ${error.message}` };
+    }
+  };
+
+  const addLocker = async (data: { number: string; location: string; size: LockerSize }) => {
     const exists = lockers.some(l => l.number.toLowerCase() === data.number.toLowerCase());
     if (exists) return { success: false, message: `Locker ${data.number} already exists.` };
-    if (!data.number.trim() || !data.location.trim()) {
-      return { success: false, message: 'Locker number and location are required.' };
-    }
-    const id = 'L' + (lockers.length + 1).toString().padStart(3, '0') + '_' + generateId();
-    const newLocker: Locker = {
+    
+    const id = 'L' + (lockers.length + 1).toString().padStart(3, '0') + '_' + Math.random().toString(36).substring(2, 6);
+    
+    const { error } = await supabase.from('lockers').insert({
       id,
       number: data.number.trim().toUpperCase(),
       location: data.location.trim(),
       size: data.size,
       status: 'available',
-      wrongAttempts: 0,
-    };
-    setLockers(prev => [...prev, newLocker]);
-    addLog({ lockerId: id, timestamp: new Date().toISOString(), eventType: 'booking_created', severity: 'info', description: `Locker ${data.number} added by admin.` });
+      wrong_attempts: 0
+    });
+
+    if (error) return { success: false, message: `Database error: ${error.message}` };
+
+    await addLog({ lockerId: id, timestamp: new Date().toISOString(), eventType: 'booking_created', severity: 'info', description: `Locker ${data.number} added by admin.` });
+    
     return { success: true, message: `Locker ${data.number} added successfully.` };
   };
 
-  const updateLockerStatus = (lockerId: string, newStatus: LockerStatus) => {
-    const now = new Date().toISOString();
-    const locker = lockers.find(l => l.id === lockerId)!;
-    setLockers(prev =>
-      prev.map(l => {
-        if (l.id !== lockerId) return l;
-        if (newStatus === 'available') {
-          return { id: l.id, number: l.number, location: l.location, size: l.size, status: 'available', wrongAttempts: 0 };
-        }
-        return { ...l, status: newStatus };
-      })
-    );
-    addLog({
-      lockerId, timestamp: now,
+  const updateLockerStatus = async (lockerId: string, newStatus: LockerStatus) => {
+    const locker = lockers.find(l => l.id === lockerId);
+    
+    if (newStatus === 'available') {
+      await supabase.from('lockers').update({
+        status: 'available', booked_by: null, booked_by_room: null, password: null, booked_at: null, expires_at: null, wrong_attempts: 0
+      }).eq('id', lockerId);
+    } else {
+      await supabase.from('lockers').update({ status: newStatus }).eq('id', lockerId);
+    }
+
+    await addLog({
+      lockerId, timestamp: new Date().toISOString(),
       eventType: newStatus === 'blocked' ? 'blocked' : newStatus === 'available' ? 'unblocked' : 'booking_created',
       severity: newStatus === 'blocked' ? 'error' : newStatus === 'available' ? 'success' : 'info',
       description: `Admin changed locker status from "${locker?.status}" to "${newStatus}".`,
     });
-    setNotifications(prev => [
-      {
-        id: 'notif_' + generateId(),
-        lockerId,
-        lockerNumber: locker?.number ?? lockerId,
-        title: `🔧 Admin: Status Changed — ${locker?.number ?? lockerId}`,
-        description: `Locker status was manually changed from "${locker?.status}" to "${newStatus}" by the admin.`,
-        timestamp: now,
-        read: false,
-        type: newStatus === 'blocked' ? 'error' : newStatus === 'available' ? 'success' : 'info',
-      },
-      ...prev,
-    ]);
   };
 
-  const markNotificationRead = (notifId: string) => {
-    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
+  const markNotificationRead = async (notifId: string) => {
+    await supabase.from('notifications').update({ read: true }).eq('id', notifId);
   };
 
-  const markAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const markAllRead = async () => {
+    await supabase.from('notifications').update({ read: true }).eq('read', false);
   };
 
   return (
     <AppContext.Provider value={{
       lockers, logs, notifications,
-      bookLocker, unblockLocker,
+      bookLocker, unblockLocker, cancelBooking,
       markNotificationRead, markAllRead,
       getLockerLogs, addLog,
-      unreadCount,
-      addLocker,
-      updateLockerStatus,
+      unreadCount, addLocker, updateLockerStatus,
     }}>
       {children}
     </AppContext.Provider>

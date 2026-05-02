@@ -5,7 +5,7 @@ import {
   MapPin, Clock, KeyRound, Copy, Check, Eye, EyeOff,
   DoorOpen, DoorClosed, PackageCheck, PackageX, UnlockKeyhole,
   Activity, Info, CheckCircle2, XCircle, RefreshCw, CalendarClock,
-  ShieldX, Video, Trash2, TriangleAlert,
+  ShieldX, Video, Trash2, TriangleAlert, LockKeyholeOpen,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -117,7 +117,7 @@ function LogRow({ log }: { log: LogEntry }) {
 
 export function LockerDetail() {
   const { id } = useParams<{ id: string }>();
-  const { lockers, getLockerLogs, unblockLocker, cancelBooking } = useApp();
+  const { lockers, getLockerLogs, unblockLocker, cancelBooking, openLockerFromAdmin } = useApp();
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -131,6 +131,10 @@ export function LockerDetail() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [showOpenModal, setShowOpenModal] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const [openError, setOpenError] = useState<string | null>(null);
+  const [openSuccess, setOpenSuccess] = useState(false);
 
   if (!locker) {
     return (
@@ -190,7 +194,7 @@ export function LockerDetail() {
   const handleUnblock = () => {
     setUnblocking(true);
     setTimeout(() => {
-      unblockLocker(locker.id);
+      unblockLocker(locker!.id);
       setUnblocking(false);
     }, 800);
   };
@@ -211,6 +215,21 @@ export function LockerDetail() {
       setCancelError(error.message ?? 'Failed to cancel booking.');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleOpenLocker = async (lockerId: string) => {
+    try {
+      setOpening(true);
+      setOpenError(null);
+      setOpenSuccess(false);
+      const result = await openLockerFromAdmin(lockerId);
+      if (!result.success) throw new Error(result.message);
+      setOpenSuccess(true);
+    } catch (error: any) {
+      setOpenError(error.message ?? 'Failed to open locker.');
+    } finally {
+      setOpening(false);
     }
   };
 
@@ -269,6 +288,18 @@ export function LockerDetail() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Admin: Open Locker (any status) */}
+            {isAdmin && (
+              <button
+                onClick={() => { setOpenError(null); setOpenSuccess(false); setShowOpenModal(true); }}
+                className="flex items-center gap-2 px-4 py-2.5 bg-[#0c1a2e] hover:bg-slate-800 text-white rounded-xl text-sm transition-colors"
+                style={{ fontWeight: 600 }}
+              >
+                <LockKeyholeOpen className="w-4 h-4" />
+                Open Locker
+              </button>
+            )}
+
             {/* Cancel booking — only owner, only when status is 'booked' */}
             {isOwner && locker.status === 'booked' && (
               <button
@@ -296,6 +327,90 @@ export function LockerDetail() {
           </div>
         </div>
       </div>
+
+      {/* ── Admin: Open Locker Modal ── */}
+      {showOpenModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 rounded-xl bg-[#0c1a2e]/10 flex items-center justify-center flex-shrink-0">
+                <LockKeyholeOpen className="w-5 h-5 text-[#0c1a2e]" />
+              </div>
+              <div>
+                <h3 className="text-slate-800" style={{ fontWeight: 700 }}>Open Locker Remotely?</h3>
+                <p className="text-sm text-slate-500 mt-0.5">Admin override — no PIN required.</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm text-slate-600">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Locker</span>
+                <span style={{ fontWeight: 600 }}>{locker.number}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Location</span>
+                <span style={{ fontWeight: 600 }}>{locker.location}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Status</span>
+                <span className={`${sCfg.color}`} style={{ fontWeight: 600 }}>{sCfg.label}</span>
+              </div>
+              {locker.bookedBy && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Tenant</span>
+                  <span style={{ fontWeight: 600 }}>{locker.bookedBy}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Success */}
+            {openSuccess && (
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 text-sm text-emerald-700">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                Locker <strong>{locker.number}</strong> has been opened successfully.
+              </div>
+            )}
+
+            {/* Error */}
+            {openError && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-sm text-red-600">
+                <XCircle className="w-4 h-4 flex-shrink-0" />
+                {openError}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => { setShowOpenModal(false); setOpenError(null); setOpenSuccess(false); }}
+                disabled={opening}
+                className="flex-1 py-2.5 px-4 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                {openSuccess ? 'Close' : 'Cancel'}
+              </button>
+              {!openSuccess && (
+                <button
+                  onClick={() => handleOpenLocker(locker.id)}
+                  disabled={opening}
+                  className="flex-1 py-2.5 px-4 bg-[#0c1a2e] hover:bg-slate-800 disabled:opacity-60 text-white rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+                  style={{ fontWeight: 600 }}
+                >
+                  {opening ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Opening…
+                    </>
+                  ) : (
+                    <>
+                      <LockKeyholeOpen className="w-4 h-4" />
+                      Yes, Open It
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel Booking Confirmation Modal */}
       {showCancelModal && (
@@ -376,8 +491,8 @@ export function LockerDetail() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Info panel */}
         <div className="space-y-4">
-          {/* ── Live Camera Feed ── */}
-          {locker.cameraUrl && (
+          {/* ── Live Camera Feed ── visible to admin always, or to owner when status is booked/filled/blocked ── */}
+          {locker.cameraUrl && (isAdmin || (isOwner && locker.status !== 'available')) && (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">

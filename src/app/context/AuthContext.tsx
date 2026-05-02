@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '../../lib/supabase'; // Pastikan path ini sesuai
+import { supabase, supabaseSecondary } from '../../lib/supabase'; // Pastikan path ini sesuai
+
 
 export interface AuthUser {
   id: string;
@@ -18,6 +19,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   addUser: (data: { name: string; room: string; email: string; password: string }) => Promise<{ success: boolean; message: string }>;
+  deleteUser: (userId: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -114,34 +116,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, message: 'All fields are required.' };
     }
 
-    // 1. Buat akun di sistem Autentikasi internal Supabase (auth.users)
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await supabaseSecondary.auth.signUp({
       email: data.email,
       password: data.password,
+      options: {
+        data: {
+          name: data.name.trim(),
+          room: data.room.trim()
+        }
+      }
     });
 
     if (authError) return { success: false, message: authError.message };
     if (!authData.user) return { success: false, message: 'Failed to create user.' };
 
-    // 2. Simpan profil tambahan (nama, room, role) ke tabel 'users' publik milikmu
-    const { error: dbError } = await supabase.from('users').insert({
-      id: authData.user.id, // ID ini PASTI SAMA dengan ID di sistem auth
-      email: data.email.toLowerCase(),
-      name: data.name.trim(),
-      room: data.room.trim(),
-      role: 'tenant', // Default role
-    });
-
-    if (dbError) {
-      return { success: false, message: `Database error: ${dbError.message}` };
-    }
-
-    fetchAllUsers(); // Refresh daftar user
+    fetchAllUsers(); // Refresh daftar user untuk admin
     return { success: true, message: `Account for ${data.name} created successfully.` };
+  };
+  const deleteUser = async (userId: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const { error } = await supabase.rpc('hapus_user', {
+        p_user_id: userId
+      });
+
+      if (error) {
+        return { success: false, message: `Database error: ${error.message}` };
+      }
+
+      // Refresh daftar user di frontend setelah berhasil dihapus
+      fetchAllUsers(); 
+      return { success: true, message: 'User deleted successfully.' };
+
+    } catch (error: any) {
+      console.error("RPC Error:", error.message);
+      return { success: false, message: `Failed to delete user: ${error.message}` };
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, users: allUsers, isLoggedIn: !!user, isAdmin, login, logout, addUser }}>
+    <AuthContext.Provider value={{ user, users: allUsers, isLoggedIn: !!user, isAdmin, login, logout, addUser, deleteUser }}>
       {children}
     </AuthContext.Provider>
   );

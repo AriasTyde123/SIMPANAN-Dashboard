@@ -50,7 +50,11 @@ const eventConfig: Record<LogEventType, { label: string; icon: React.ReactNode; 
     icon: <CheckCircle2 className="w-4 h-4" />,
   },
   booking_cancelled: {
-    label: 'Booking Cancelled', color: 'text-slate-700', bg: 'bg-slate-100',
+    label: 'Booking Cancelled', color: 'text-orange-700', bg: 'bg-orange-50',
+    icon: <AlertTriangle className="w-4 h-4" />,
+  },
+  locker_deleted: {
+    label: 'Locker Deleted', color: 'text-orange-700', bg: 'bg-orange-50',
     icon: <Trash2 className="w-4 h-4" />,
   },
   password_sent: {
@@ -194,7 +198,7 @@ export function LockerDetail() {
   const handleUnblock = () => {
     setUnblocking(true);
     setTimeout(() => {
-      unblockLocker(locker!.id);
+      unblockLocker(locker!.id, user?.name ?? 'Unknown');
       setUnblocking(false);
     }, 800);
   };
@@ -205,7 +209,7 @@ export function LockerDetail() {
       setCancelError(null);
       await new Promise(res => setTimeout(res, 700));
 
-      const result = await cancelBooking(lockerId, user?.name ?? 'User');
+      const result = await cancelBooking(lockerId, user?.name ?? 'User', isAdmin);
 
       if (!result.success) throw new Error(result.message);
 
@@ -301,7 +305,7 @@ export function LockerDetail() {
             )}
 
             {/* Cancel booking — only owner, only when status is 'booked' */}
-            {isOwner && locker.status === 'booked' && (
+            {(isOwner || isAdmin) && locker.status === 'booked' && (
               <button
                 onClick={() => { setCancelError(null); setShowCancelModal(true); }}
                 className="flex items-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-xl text-sm transition-colors"

@@ -18,6 +18,7 @@ const userNavItems = [
 const adminNavItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/notifications', label: 'Notifications', icon: Bell },
+  { to: '/my-bookings', label: 'My Bookings', icon: BookMarked },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 

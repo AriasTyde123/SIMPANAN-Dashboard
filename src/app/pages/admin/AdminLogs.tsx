@@ -4,7 +4,7 @@ import {
   Activity, Filter, Search, ArrowLeft,
   DoorOpen, DoorClosed, XCircle, ShieldAlert, PackageCheck,
   PackageX, AlertTriangle, UnlockKeyhole, CheckCircle2,
-  KeyRound, RefreshCw, Info, Clock, Lock,
+  KeyRound, RefreshCw, Info, Clock, Lock, Trash2
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { LogEntry, LogEventType, LogSeverity } from '../../data/mockData';
@@ -18,8 +18,9 @@ const eventConfig: Record<LogEventType, { label: string; icon: React.ReactNode; 
   item_removed:    { label: 'Item Removed',    color: 'text-purple-700',  bg: 'bg-purple-50',  icon: <PackageX className="w-3.5 h-3.5" /> },
   door_ajar:       { label: 'Door Ajar',       color: 'text-orange-700',  bg: 'bg-orange-50',  icon: <AlertTriangle className="w-3.5 h-3.5" /> },
   unblocked:       { label: 'Unblocked',       color: 'text-emerald-700', bg: 'bg-emerald-100',icon: <UnlockKeyhole className="w-3.5 h-3.5" /> },
-  booking_created: { label: 'Booking Created', color: 'text-cyan-700',    bg: 'bg-cyan-50',    icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
-  booking_cancelled: { label: 'Booking Cancelled', color: 'text-red-700', bg: 'bg-red-100', icon: <XCircle className="w-3.5 h-3.5" /> },
+  booking_created: { label: 'Booking Created', color: 'text-cyan-700',    bg: 'bg-cyan-50',    icon: <AlertTriangle className="w-4 h-4" /> },
+  booking_cancelled: { label: 'Booking Cancelled', color: 'text-orange-700', bg: 'bg-orange-50', icon: <XCircle className="w-3.5 h-3.5" /> },
+  locker_deleted: { label: 'Locker Deleted',   color: 'text-orange-700', bg: 'bg-orange-50',   icon: <Trash2 className="w-4 h-4" />},
   password_sent:   { label: 'Password Sent',   color: 'text-indigo-700',  bg: 'bg-indigo-50',  icon: <KeyRound className="w-3.5 h-3.5" /> },
   password_reset:  { label: 'Password Reset',  color: 'text-teal-700',    bg: 'bg-teal-50',    icon: <RefreshCw className="w-3.5 h-3.5" /> },
 };

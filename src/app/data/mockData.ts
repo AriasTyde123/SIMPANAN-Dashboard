@@ -11,6 +11,7 @@ export type LogEventType =
   | 'unblocked'
   | 'booking_created'
   | 'booking_cancelled'
+  | 'locker_deleted'
   | 'password_sent'
   | 'password_reset';
 export type LogSeverity = 'info' | 'warning' | 'error' | 'success';

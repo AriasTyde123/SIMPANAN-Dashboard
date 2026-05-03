@@ -46,7 +46,7 @@ function PasswordBadge({ password }: { password: string }) {
   );
 }
 
-function BookingCard({ locker }: { locker: Locker }) {
+function BookingCard({ locker, user }: { locker: Locker, user:string }) {
   const { unblockLocker } = useApp();
   const navigate = useNavigate();
   const [unblocking, setUnblocking] = useState(false);
@@ -54,7 +54,7 @@ function BookingCard({ locker }: { locker: Locker }) {
   const handleUnblock = () => {
     setUnblocking(true);
     setTimeout(() => {
-      unblockLocker(locker.id);
+      unblockLocker(locker.id, user);
       setUnblocking(false);
     }, 800);
   };
@@ -218,7 +218,7 @@ export function MyBookings() {
                 <h2 className="text-red-600" style={{ fontSize: '0.95rem' }}>Requires Attention ({blocked.length})</h2>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {blocked.map(l => <BookingCard key={l.id} locker={l} />)}
+                {blocked.map(l => <BookingCard key={l.id} locker={l} user={user?.name ?? 'Unknown'}/>)}
               </div>
             </div>
           )}
@@ -231,7 +231,7 @@ export function MyBookings() {
                 <h2 className="text-slate-600" style={{ fontSize: '0.95rem' }}>Active Bookings ({active.length})</h2>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {active.map(l => <BookingCard key={l.id} locker={l} />)}
+                {active.map(l => <BookingCard key={l.id} locker={l} user={user?.name ?? 'Unknown'}/>)}
               </div>
             </div>
           )}

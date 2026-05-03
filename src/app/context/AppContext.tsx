@@ -1,14 +1,15 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Locker, LogEntry, Notification, LockerStatus, LockerSize } from '../data/mockData';
+import { useAuth } from './AuthContext';
 
 interface AppContextType {
   lockers: Locker[];
   logs: LogEntry[];
   notifications: Notification[];
   bookLocker: (lockerId: string, userName: string, userRoom: string) => Promise<string>;
-  cancelBooking: (lockerId: string, cancelledBy: string) => Promise<{ success: boolean; message: string }>;
-  unblockLocker: (lockerId: string) => Promise<void>;
+  cancelBooking: (lockerId: string, cancelledBy: string, admin: boolean) => Promise<{ success: boolean; message: string }>;
+  unblockLocker: (lockerId: string, userName: string) => Promise<void>;
   markNotificationRead: (notifId: string) => Promise<void>;
   markAllRead: () => Promise<void>;
   getLockerLogs: (lockerId: string) => LogEntry[];
@@ -16,6 +17,7 @@ interface AppContextType {
   unreadCount: number;
   addLocker: (data: { number: string; location: string; size: LockerSize }) => Promise<{ success: boolean; message: string }>;
   updateLockerStatus: (lockerId: string, newStatus: LockerStatus) => Promise<void>;
+  deleteLocker: (lockerId: string) => Promise<{ success: boolean; message: string }>;
   refreshData: () => Promise<void>;
   openLockerFromAdmin: (lockerId: string) => Promise<{ success: boolean; message: string }>;
 }
@@ -37,6 +39,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
+    
+  const { user, isAdmin } = useAuth();
 
   // Wrapped in useCallback so the ref always holds a stable, fresh version
   const fetchAllData = useCallback(async () => {
@@ -56,14 +60,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })));
     }
 
-    const { data: dbNotifs } = await supabase.from('notifications').select('*').order('timestamp', { ascending: false });
-    if (dbNotifs) {
-      setNotifications(dbNotifs.map(n => ({
-        id: n.id, lockerId: n.locker_id, lockerNumber: n.locker_number, title: n.title, description: n.description,
-        timestamp: n.timestamp, read: n.read, type: n.type
-      })));
+    if (user) {
+      let notifQuery = supabase.from('notifications').select('*').order('timestamp', { ascending: false });
+
+      notifQuery = notifQuery.eq('target_user', user.name);
+
+      const { data: dbNotifs } = await notifQuery;
+      
+      if (dbNotifs) {
+        setNotifications(dbNotifs.map(n => ({
+          id: n.id, lockerId: n.locker_id, lockerNumber: n.locker_number, title: n.title, description: n.description,
+          timestamp: n.timestamp, read: n.read, type: n.type
+        })));
+      }
+    } else {
+      // Jika tidak ada user login, kosongkan notifikasi
+      setNotifications([]);
     }
-  }, []);
+  }, [user]);
 
   // Keep a ref that always points to the latest fetchAllData,
   // so the Realtime callback never has a stale closure.
@@ -142,7 +156,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await supabase.from('notifications').insert({
       locker_id: lockerId, 
       locker_number: locker?.number ?? lockerId,
-      title: `✅ Booking Confirmed — ${locker?.number ?? lockerId}`,
+      target_user: userName,
+      title: `Booking Confirmed — ${locker?.number ?? lockerId}`,
       description: `Your booking is confirmed. Password: ${password} has been generated and is ready to share with your courier.`,
       type: 'info',
     });
@@ -151,20 +166,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return password;
   };
 
-  const unblockLocker = async (lockerId: string) => {
+  const unblockLocker = async (lockerId: string, userName: string) => {
     const locker = lockers.find(l => l.id === lockerId);
     await supabase.from('lockers').update({ status: 'booked', wrong_attempts: 0 }).eq('id', lockerId);
     await addLog({ lockerId, timestamp: new Date().toISOString(), eventType: 'unblocked', severity: 'success', description: `Locker unblocked. Wrong attempt counter reset.` });
     await supabase.from('notifications').insert({
+      target_user: userName,
       locker_id: lockerId, locker_number: locker?.number ?? lockerId,
-      title: `🔓 Locker ${locker?.number ?? lockerId} Unblocked`,
+      title: `Locker ${locker?.number ?? lockerId} Unblocked`,
       description: `Locker successfully unblocked. The courier can now retry entering the password.`,
       type: 'success',
     });
     await fetchAllData();
   };
 
-  const cancelBooking = async (lockerId: string, cancelledBy: string): Promise<{ success: boolean; message: string }> => {
+  const cancelBooking = async (lockerId: string, cancelledBy: string, admin: boolean): Promise<{ success: boolean; message: string }> => {
     const locker = lockers.find(l => l.id === lockerId);
     if (!locker) return { success: false, message: 'Locker not found.' };
     if (locker.status === 'filled')  return { success: false, message: 'Locker cannot be cancelled — a package has already been placed inside.' };
@@ -180,12 +196,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
         eventType: 'booking_cancelled', severity: 'info',
         description: `Booking cancelled by ${cancelledBy}. Locker is now available.`,
       });
-      await supabase.from('notifications').insert({
-        locker_id: lockerId, locker_number: locker.number,
-        title: `🗑️ Booking Cancelled — ${locker.number}`,
-        description: `Your booking for Locker ${locker.number} has been successfully cancelled.`,
-        type: 'info',
-      });
+
+      if(admin && cancelledBy === locker.bookedBy){
+        await supabase.from('notifications').insert({
+          target_user: cancelledBy,
+          locker_id: lockerId, locker_number: locker.number,
+          title: `Booking Cancelled — ${locker.number}`,
+          description: `Your booking for Locker ${locker.number} has been successfully cancelled.`,
+          type: 'info',
+        });
+      } else if (admin){
+        await supabase.from('notifications').insert({
+          target_user: locker.bookedBy,
+          locker_id: lockerId, locker_number: locker.number,
+          title: `Your Booking Cancelled by Admin — ${cancelledBy}`,
+          description: `Your booking for Locker ${locker.number} has been successfully cancelled.`,
+          type: 'info',
+        });
+      } else {
+        await supabase.from('notifications').insert({
+          target_user: cancelledBy,
+          locker_id: lockerId, locker_number: locker.number,
+          title: `Booking Cancelled — ${locker.number}`,
+          description: `Your booking for Locker ${locker.number} has been successfully cancelled.`,
+          type: 'info',
+        });
+      }
 
       await fetchAllData();
       return { success: true, message: `Booking for ${locker.number} has been cancelled successfully.` };
@@ -256,13 +292,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await fetchAllData();
   };
 
+  const deleteLocker = async (lockerId: string) => {
+    const locker = lockers.find(l => l.id === lockerId);
+    if (!locker) return { success: false, message: 'Locker not found.' };
+    if (locker.status !== 'available') return { success: false, message: 'Locker cannot be deleted — it is not available.' };
+
+    // 🌟 1. HAPUS SEMUA LOG TERLEBIH DAHULU
+    // Kita harus menghapus "anak-anaknya" (logs) sebelum menghapus "induknya" (locker)
+    const { error: logError } = await supabase.from('logs').delete().eq('locker_id', lockerId);
+    
+    if (logError) {
+      return { success: false, message: `Failed to delete associated logs: ${logError.message}` };
+    }
+
+    // 🌟 2. SETELAH LOG BERSIH, BARU HAPUS LOKERNYA
+    const { error } = await supabase.from('lockers').delete().eq('id', lockerId);
+    
+    if (error) {
+      return { success: false, message: `Database error: ${error.message}` };
+    }
+
+    await fetchAllData();
+    return { success: true, message: `Locker ${locker.number} deleted successfully.` };
+  };
+
   const markNotificationRead = async (notifId: string) => {
-    await supabase.from('notifications').update({ read: true }).eq('id', notifId);
+    await supabase.from('notifications').update({ 
+      read: true, 
+      read_at: new Date().toISOString() // 🌟 Catat waktu dibacanya
+    }).eq('id', notifId);
     await fetchAllData();
   };
 
-  const markAllRead = async () => {
-    await supabase.from('notifications').update({ read: true }).eq('read', false);
+const markAllRead = async () => {
+    if (!user) return;
+
+    let query = supabase.from('notifications').update({ 
+      read: true, 
+      read_at: new Date().toISOString()
+    }).eq('read', false);
+
+    query = query.eq('target_user', user.name);
+    
+    await query;
     await fetchAllData();
   };
 
@@ -272,7 +344,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       bookLocker, unblockLocker, cancelBooking, openLockerFromAdmin,
       markNotificationRead, markAllRead,
       getLockerLogs, addLog,
-      unreadCount, addLocker, updateLockerStatus,
+      unreadCount, addLocker, updateLockerStatus,  deleteLocker,
       refreshData: fetchAllData,
     }}>
       {children}

@@ -150,7 +150,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // 3. TAMBAHKAN LOG BARU
     // Log ini aman dari penghapusan karena perintah delete di atas sudah selesai (await)
     await addLog({ lockerId, timestamp: now, eventType: 'booking_created', severity: 'info', description: `Booking created by ${userName} (Room ${userRoom})` });
-    await addLog({ lockerId, timestamp: now, eventType: 'password_sent', severity: 'success', description: `Access password ${password} sent to user` });
+    await addLog({ lockerId, timestamp: now, eventType: 'password_sent', severity: 'success', description: `Access password sent to user` });
 
     // 4. KIRIM NOTIFIKASI
     await supabase.from('notifications').insert({

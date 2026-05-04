@@ -24,6 +24,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  base: '/SIMPANAN-Dashboard/',
   resolve: {
     alias: {
       // Alias @ to the src directory

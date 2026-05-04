@@ -60,7 +60,7 @@ export function Login() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-400/3 rounded-full" />
 
         {/* Logo */}
-        <div className="flex items-center gap-3 relative z-10">
+        <div className="flex items-center gap-3 relative z-10 mb-5">
           <div className="w-10 h-10 rounded-xl bg-cyan-400 flex items-center justify-center">
             <Lock className="w-5.5 h-5.5 text-slate-900" />
           </div>
@@ -71,39 +71,6 @@ export function Login() {
             <div className="text-slate-400" style={{ fontSize: '0.65rem', lineHeight: 1.2 }}>
               Smart Locker Management System
             </div>
-          </div>
-        </div>
-
-        {/* Locker illustration (CSS-based) */}
-        <div className="relative z-10 mt-10 mb-8">
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { status: 'available', label: 'L-001' },
-              { status: 'booked', label: 'L-002' },
-              { status: 'filled', label: 'L-003' },
-              { status: 'blocked', label: 'L-004' },
-              { status: 'available', label: 'L-005' },
-              { status: 'filled', label: 'L-006' },
-            ].map((l, i) => {
-              const colors = {
-                available: 'border-emerald-500/50 bg-emerald-500/10',
-                booked: 'border-amber-500/50 bg-amber-500/10',
-                filled: 'border-blue-500/50 bg-blue-500/10',
-                blocked: 'border-red-500/50 bg-red-500/10',
-              }[l.status];
-              const icons = {
-                available: <Lock className="w-5 h-5 text-emerald-400" />,
-                booked: <Package className="w-5 h-5 text-amber-400" />,
-                filled: <Package className="w-5 h-5 text-blue-400" />,
-                blocked: <ShieldCheck className="w-5 h-5 text-red-400" />,
-              }[l.status];
-              return (
-                <div key={i} className={`border rounded-xl p-3 flex flex-col items-center gap-1.5 ${colors}`}>
-                  {icons}
-                  <span className="text-[10px] text-slate-400" style={{ fontFamily: 'monospace' }}>{l.label}</span>
-                </div>
-              );
-            })}
           </div>
         </div>
 

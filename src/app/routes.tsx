@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router';
+import { createHashRouter } from 'react-router';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { MyBookings } from './pages/MyBookings';
@@ -10,7 +10,7 @@ import { ManageLockers } from './pages/admin/ManageLockers';
 import { ManageUsers } from './pages/admin/ManageUsers';
 import { CameraMonitor } from './pages/admin/CameraMonitor';
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: '/',
     Component: Layout,

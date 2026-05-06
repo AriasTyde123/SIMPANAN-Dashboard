@@ -54,6 +54,7 @@ function CameraCard({ locker }: { locker: Locker }) {
               lockerNumber={locker.number}
               compact={true}
               expandable={true}
+              showControls={true}
             />
           ) : (
             <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center gap-2">

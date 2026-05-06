@@ -240,15 +240,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Catat aktivitas ini di log
-      await addLog({
-        lockerId, 
-        timestamp: new Date().toISOString(),
-        eventType: 'door_opened', // atau buat event_type baru misal 'remote_open_triggered'
-        severity: 'success',
-        description: `Admin remotely triggered the locker door to open.`,
-      });
-
       return { success: true, message: `Command to open locker ${lockerId} sent.` };
 
     } catch (error: any) {

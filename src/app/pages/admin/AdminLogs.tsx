@@ -4,7 +4,7 @@ import {
   Activity, Filter, Search, ArrowLeft,
   DoorOpen, DoorClosed, XCircle, ShieldAlert, PackageCheck,
   PackageX, AlertTriangle, UnlockKeyhole, CheckCircle2,
-  KeyRound, RefreshCw, Info, Clock, Lock, Trash2
+  KeyRound, RefreshCw, Info, Clock, Lock, LockOpen, Trash2
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { LogEntry, LogEventType, LogSeverity } from '../../data/mockData';
@@ -12,6 +12,8 @@ import { LogEntry, LogEventType, LogSeverity } from '../../data/mockData';
 const eventConfig: Record<LogEventType, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
   door_opened:     { label: 'Door Opened',     color: 'text-emerald-700', bg: 'bg-emerald-50', icon: <DoorOpen className="w-3.5 h-3.5" /> },
   door_closed:     { label: 'Door Closed',     color: 'text-slate-700',   bg: 'bg-slate-50',   icon: <DoorClosed className="w-3.5 h-3.5" /> },
+  door_locked:     { label: 'Door Locked',     color: 'text-blue-700',    bg: 'bg-blue-50',    icon: <Lock className="w-3.5 h-3.5" /> },
+  door_unlocked:   { label: 'Door Unlocked',   color: 'text-teal-700',    bg: 'bg-teal-50',    icon: <LockOpen className="w-3.5 h-3.5" /> },
   wrong_password:  { label: 'Wrong Password',  color: 'text-amber-700',   bg: 'bg-amber-50',   icon: <XCircle className="w-3.5 h-3.5" /> },
   blocked:         { label: 'Locker Blocked',  color: 'text-red-700',     bg: 'bg-red-100',    icon: <ShieldAlert className="w-3.5 h-3.5" /> },
   item_detected:   { label: 'Item Detected',   color: 'text-blue-700',    bg: 'bg-blue-50',    icon: <PackageCheck className="w-3.5 h-3.5" /> },

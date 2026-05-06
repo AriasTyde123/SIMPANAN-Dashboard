@@ -3,6 +3,8 @@ export type LockerSize = 'small' | 'medium' | 'large';
 export type LogEventType =
   | 'door_opened'
   | 'door_closed'
+  | 'door_locked'
+  | 'door_unlocked'
   | 'wrong_password'
   | 'blocked'
   | 'item_detected'

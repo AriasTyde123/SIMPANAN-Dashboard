@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   X, Lock, MapPin, CheckCircle2, Copy, Check,
-  Send, AlertCircle, Package, Maximize2, Layers, Minimize2
+  Send, AlertCircle, Package, Maximize2, Layers, Minimize2,
+  RefreshCw
 } from 'lucide-react';
 import { Locker } from '../data/mockData';
 import { useApp } from '../context/AppContext';
@@ -16,6 +17,7 @@ interface Props {
 type Step = 'confirm' | 'success';
 
 export function BookingModal({ locker, onClose }: Props) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { bookLocker } = useApp();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -31,9 +33,27 @@ export function BookingModal({ locker, onClose }: Props) {
   }[locker.size];
 
   const handleConfirm = async () => {
-    const pw = await bookLocker(locker.id, user?.name ?? 'Unknown', user?.room ?? '—');
-    setPassword(pw);
-    setStep('success');
+    // 1. Ubah state menjadi true agar animasi loading muncul dan tombol mati
+    setIsSubmitting(true);
+    
+    try {
+      // (Opsional) Tambahkan jeda waktu 600ms agar animasi loading sempat terlihat 
+      // dan UI terasa lebih natural (tidak sekadar berkedip lalu hilang)
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // 2. Lakukan proses booking ke database
+      const pw = await bookLocker(locker.id, user?.name ?? 'Unknown', user?.room ?? '—');
+      
+      // 3. Jika berhasil, set password dan pindah ke halaman sukses
+      setPassword(pw);
+      setStep('success');
+    } catch (error) {
+      console.error("Booking gagal:", error);
+    } finally {
+      // 4. Kembalikan state ke false jika sewaktu-waktu proses gagal 
+      // (atau selesai) agar tombol bisa diklik lagi
+      setIsSubmitting(false);
+    }
   };
 
   const handleCopy = () => {
@@ -115,17 +135,29 @@ export function BookingModal({ locker, onClose }: Props) {
             <div className="flex gap-3">
               <button
                 onClick={onClose}
+                disabled={isSubmitting}
                 className="flex-1 py-2.5 px-4 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirm}
+                disabled={isSubmitting}
                 className="flex-1 py-2.5 px-4 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
                 style={{ fontWeight: 600 }}
               >
-                <CheckCircle2 className="w-4 h-4" />
-                Confirm Booking
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Booking...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  Confirm Booking
+                
+                </>
+              )}
               </button>
             </div>
           </div>

@@ -129,7 +129,7 @@ function LogRow({ log }: { log: LogEntry }) {
 
 export function LockerDetail() {
   const { id } = useParams<{ id: string }>();
-  const { lockers, getLockerLogs, unblockLocker, cancelBooking, openLockerFromAdmin } = useApp();
+  const { lockers, getLockerLogs, unblockLocker, cancelBooking, openLockerFromAdmin, updateLockerStatus} = useApp();
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -209,6 +209,19 @@ export function LockerDetail() {
       unblockLocker(locker!.id, user?.name ?? 'Unknown');
       setUnblocking(false);
     }, 800);
+  };
+
+  const handleDoneBooking = async () => {
+    if (!locker) return;
+    try {
+      setCancelling(true); // Kita pakai state cancelling agar tombol menampilkan loading
+      await updateLockerStatus(locker.id, 'available');
+      navigate('/my-bookings'); // Redirect ke halaman booking setelah sukses
+    } catch (error) {
+      console.error("Failed to complete booking:", error);
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const handleCancelBooking = async (lockerId: string) => {
@@ -321,6 +334,27 @@ export function LockerDetail() {
               >
                 <Trash2 className="w-4 h-4" />
                 Cancel Booking
+              </button>
+            )}
+
+            {(isOwner || isAdmin) && locker.status === 'filled' && (
+              <button
+                onClick={handleDoneBooking}
+                disabled={cancelling}
+                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white rounded-xl text-sm transition-colors shadow-sm"
+                style={{ fontWeight: 600 }}
+              >
+                {cancelling ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Completing…
+                  </>
+                ) : (
+                  <>
+                    <PackageCheck className="w-4 h-4" />
+                    Finish Booking (Done)
+                  </>
+                )}
               </button>
             )}
 
